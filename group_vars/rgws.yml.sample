@@ -33,20 +33,46 @@ dummy:
 #rgw_bucket_default_quota_max_objects: 1638400 # i.e., 100K * 16
 
 # This dictionary will create pools with the given number of pgs.
-# This is important because they would be created with the default
-# of 8.
-# New pools and their corresponding pg_nums can be created
-# by adding to the rgw_create_pools dictionary (see foo).
+# This is important because these pools would be created with the default
+# of pg_num of 8 (from osd_pool_default_pg_num) if rgw_create_pools
+# wasn't declared and configured.
+# The pools and associated pg_num's are merely examples of pools that
+# could be automatically created when rgws are deployed.
+# A pgcalc tool should be used to determine the optimal sizes for
+# the rgw.buckets.data, rgw.buckets.index pools as well as any other
+# pools declared in this dictionary.
+# The default value of {{ rgw_zone }} is 'default'.
+# The pool_type must be set as either 'replicated' or 'ec' for
+# each pool. 
+# If a pool's pool_type is 'ec', k and m values must be set via
+# the ec_k, and ec_m variables.
 #rgw_create_pools:
-#  defaults.rgw.buckets.data:
-#    pg_num: 16
+#  {{ rgw_zone }}.rgw.buckets.data:
+#    pg_num: 64
 #    size: ""
-#  defaults.rgw.buckets.index:
-#    pg_num: 32
+#    pool_type: ec
+#    ec_profile:
+#    ec_k: 5
+#    ec_m: 3
+#  {{ rgw_zone }}.rgw.buckets.index:
+#    pg_num: 8
 #    size: ""
-#  foo:
-#    pg_num: 4
+#    pool_type: replicated
+#  {{ rgw_zone }}.rgw.meta:
+#    pg_num: 8
 #    size: ""
+#    pool_type: replicated
+#  {{ rgw_zone }}.rgw.log:
+#    pg_num: 8
+#    size: ""
+#    pool_type: ec
+#    ec_profile:
+#    ec_k: 5
+#    ec_m: 3
+#  {{ rgw_zone }}.rgw.control:
+#    pg_num: 8
+#    size: ""
+#    pool_type: replicated
 
 
 ##########

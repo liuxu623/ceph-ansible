@@ -1,0 +1,71 @@
+---
+  - name: remove ec profile
+    command: "{{ container_exec_cmd }} ceph --connect-timeout 5 --cluster {{ cluster }} osd erasure-code-profile rm {{ item.ec_profile }}"
+    with_dict: "{{ rgw_create_pools }}"
+    delegate_to: "{{ groups[mon_group_name][0] }}"
+    changed_when: false
+    run_once: true
+    register: result
+    until: result is succeeded
+    when: item.pool_type == 'ec'
+    ignore_errors: yes
+
+  - name: set ec profile
+    command: "{{ container_exec_cmd }} ceph --connect-timeout 5 --cluster {{ cluster }} osd erasure-code-profile set {{ item.ec_profile }} k={{ item.ec_k }} m={{ item.ec_m }}"
+    with_dict: "{{ rgw_create_pools }}"
+    delegate_to: "{{ groups[mon_group_name][0] }}"
+    changed_when: false
+    run_once: true
+    register: result
+    until: result is succeeded
+    when: item.pool_type == 'ec'
+
+  - name: set crush rule
+    command: "{{ container_exec_cmd }} ceph --connect-timeout 5 --cluster {{ cluster }} osd crush rule create-erasure {{ item.key }} {{ item.ec_profile }}"
+    with_dict: "{{ rgw_create_pools }}"
+    delegate_to: "{{ groups[mon_group_name][0] }}"
+    changed_when: false
+    run_once: true
+    register: result
+    until: result is succeeded
+    when: item.pool_type == 'ec'
+
+  - name: create ec pool for rgw
+    command: "{{ container_exec_cmd }} ceph --connect-timeout 5 --cluster {{ cluster }} osd pool create {{ item.key }} {{ item.value.pg_num | default(osd_pool_default_pg_num) }} erasure {{ item.ec_profile }}"
+    with_dict: "{{ rgw_create_pools }}"
+    delegate_to: "{{ groups[mon_group_name][0] }}"
+    changed_when: false
+    run_once: true
+    register: result
+    until: result is succeeded
+    when: item.pool_type == 'ec'
+
+
+  - name: create rgw pools if rgw_create_pools is defined
+    command: "{{ container_exec_cmd }} ceph --connect-timeout 5 --cluster {{ cluster }} osd pool create {{ item.key }} {{ item.value.pg_num | default(osd_pool_default_pg_num) }} replicated"
+    changed_when: false
+    with_dict: "{{ rgw_create_pools }}"
+    delegate_to: "{{ groups[mon_group_name][0] }}"
+    register: result
+    until: result is succeeded
+    run_once: true
+    when: item.pool_type == 'replicated'
+
+  - name: customize pool size
+    command: "{{ container_exec_cmd }} ceph --connect-timeout 5 --cluster {{ cluster }} osd pool set {{ item.key }} size {{ item.size | default(osd_pool_default_size) }}"
+    with_dict: "{{ rgw_create_pools }}"
+    delegate_to: "{{ groups[mon_group_name][0] }}"
+    changed_when: false
+    run_once: true
+    register: result
+    until: result is succeeded
+    when: item.size | default(osd_pool_default_size) != ceph_osd_pool_default_size
+
+  - name: set the rgw_create_pools pools application to rgw
+    command: "{{ container_exec_cmd }} ceph --connect-timeout 5 --cluster {{ cluster }} osd pool application enable {{ item.key }} rgw"
+    changed_when: false
+    with_dict: "{{ rgw_create_pools }}"
+    delegate_to: "{{ groups[mon_group_name][0] }}"
+    register: result
+    until: result is succeeded
+    run_once: true
